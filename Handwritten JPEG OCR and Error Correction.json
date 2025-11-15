@@ -1,0 +1,247 @@
+{
+  "name": "Handwritten JPEG OCR and Error Correction",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Проверка диктанта по русскому языку",
+        "formDescription": "Загрузите фотографию диктанта ученика 5 класса для автоматической проверки",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "image",
+              "fieldType": "file",
+              "multipleFiles": false,
+              "acceptFileTypes": "image/jpeg,image/jpg"
+            }
+          ]
+        },
+        "options": {
+          "appendAttribution": false,
+          "buttonLabel": "Process Image"
+        }
+      },
+      "id": "717d0dba-9221-4417-afc1-e8ed2d5b06db",
+      "name": "Upload JPEG Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.3,
+      "position": [
+        7200,
+        1120
+      ],
+      "webhookId": "080c0dec-f04e-4b31-b211-2cdf858e4791"
+    },
+    {
+      "parameters": {
+        "text": "={{ $('Extract Text with Gemini Vision').item.json.content.parts[0].text }}",
+        "attributes": {
+          "attributes": [
+            {
+              "name": "grade",
+              "description": "Оценка за диктант (5, 4, 3, или 2)"
+            },
+            {
+              "name": "supportiveComment",
+              "description": "Поддерживающий комментарий для ученика (2-3 предложения)"
+            },
+            {
+              "name": "orthographicErrors",
+              "type": "number",
+              "description": "Общее количество орфографических ошибок"
+            },
+            {
+              "name": "punctuationErrors",
+              "type": "number",
+              "description": "Общее количество пунктуационных ошибок"
+            },
+            {
+              "name": "areasForImprovement",
+              "description": "Направления для работы: 1-2 конкретных правила или темы для повторения"
+            },
+            {
+              "name": "originalText",
+              "description": "Оригинальный текст диктанта, распознанный из изображения"
+            }
+          ]
+        },
+        "options": {
+          "systemPromptTemplate": "ROLE: Sensitive Russian Language Teacher (5th Grade). Assess dictation strictly by norms.\n\nTONE: Supportive, motivating, focused on growth.\n\nGRADING RUBRIC:\n\nGrade 5: 0–1 spelling errors (non-gross), 0–1 punctuation errors (near-perfect)\nGrade 4: ≤2 spelling errors, ≤3 punctuation errors (good mastery)\nGrade 3: 3–5 spelling errors, 4–5 punctuation errors (basic grasp)\nGrade 2: >5–6 spelling errors, >5 punctuation errors (weak mastery)\n\nRULES:\n- Repeated Error: If the same error repeats multiple times, count as 1 spelling error\n- Weight: 2–3 punctuation errors ≈ 1 spelling error for final grade consideration\n- Non-gross errors (e.g., missing hyphen, typo) count as punctuation errors\n\nAnalyze the dictation text, count errors according to the rules, and fill all structured response fields."
+        }
+      },
+      "id": "e312fe73-09fc-4780-a7a8-3602ea38be42",
+      "name": "Check and Correct Mistakes",
+      "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+      "typeVersion": 1.2,
+      "position": [
+        7648,
+        1120
+      ]
+    },
+    {
+      "parameters": {
+        "model": "codestral-2411-rc5",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatMistralCloud",
+      "typeVersion": 1,
+      "position": [
+        7728,
+        1344
+      ],
+      "id": "0a66134a-82ba-41c2-bfbc-d8116999c54a",
+      "name": "Mistral Cloud Chat Model",
+      "credentials": {
+        "mistralCloudApi": {
+          "id": "KofbMHmcXTgW3Y2y",
+          "name": "Mistral Cloud account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "message",
+              "value": "=📝 Результаты проверки диктанта\n\n🎯 Оценка: {{ $json.output.grade }}\n\n💬 {{ $json.output.supportiveComment }}\n\n📊 Статистика ошибок:\n• Орфографические ошибки: {{ $json.output.orthographicErrors }}\n• Пунктуационные ошибки: {{ $json.output.punctuationErrors }}\n\n📚 Направления для работы:\n{{ $json.output.areasForImprovement }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "254b7b7c-33d0-4784-a4fb-55649af3d77c",
+      "name": "Format Telegram Message",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        8000,
+        1120
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "5765411120",
+        "text": "={{ $json.message }}",
+        "additionalFields": {
+          "parse_mode": "Markdown"
+        }
+      },
+      "id": "124dc555-c51b-412f-8342-1ed0d1766496",
+      "name": "Send to Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        8224,
+        1120
+      ],
+      "webhookId": "7a9fabdb-5de8-4144-bdc1-1f15c15412e7",
+      "retryOnFail": true,
+      "credentials": {
+        "telegramApi": {
+          "id": "2WYRRJMxfAyshzhn",
+          "name": "Telegram account 3"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "image",
+        "operation": "analyze",
+        "modelId": {
+          "__rl": true,
+          "value": "models/gemini-2.5-pro-preview-03-25",
+          "mode": "list",
+          "cachedResultName": "models/gemini-2.5-pro-preview-03-25"
+        },
+        "text": "Распознай весь рукописный текст на этом изображении и верни его точно так, как написано, со всеми ошибками и опечатками.\n\nВАЖНО: Обрати особое внимание на различие между русскими буквами:\n- Ы (ы) - буква с твёрдым знаком, часто выглядит как \"bl\" или имеет характерную форму с вертикальной чертой и мягким знаком\n- О (о) - круглая буква\n\nВнимательно различай эти буквы в рукописном тексте. Верни только текст, без комментариев.",
+        "inputType": "binary",
+        "binaryPropertyName": "image",
+        "options": {}
+      },
+      "id": "5f61cd06-e614-4070-af06-c49304b845f9",
+      "name": "Extract Text with Gemini Vision",
+      "type": "@n8n/n8n-nodes-langchain.googleGemini",
+      "typeVersion": 1,
+      "position": [
+        7424,
+        1120
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "mmwIOXvHBZDC8uCZ",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Upload JPEG Form": {
+      "main": [
+        [
+          {
+            "node": "Extract Text with Gemini Vision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check and Correct Mistakes": {
+      "main": [
+        [
+          {
+            "node": "Format Telegram Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mistral Cloud Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Check and Correct Mistakes",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Telegram Message": {
+      "main": [
+        [
+          {
+            "node": "Send to Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Text with Gemini Vision": {
+      "main": [
+        [
+          {
+            "node": "Check and Correct Mistakes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "ccd4857a-3b4d-4f62-8120-8d5149116b67",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "7810ea74e731f275d1deabbe16a84ac67a9362354871a91aacb51e2167f38021"
+  },
+  "id": "9CVERJNNgRzz4j1O",
+  "tags": []
+}
